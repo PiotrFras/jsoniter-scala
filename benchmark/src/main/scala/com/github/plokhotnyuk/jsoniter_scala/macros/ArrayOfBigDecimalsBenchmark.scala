@@ -8,13 +8,14 @@ import com.github.plokhotnyuk.jsoniter_scala.macros.JacksonSerDesers._
 import com.github.plokhotnyuk.jsoniter_scala.macros.JsoniterCodecs._
 import io.circe.parser._
 import io.circe.syntax._
-import org.openjdk.jmh.annotations.Benchmark
+import org.openjdk.jmh.annotations.{Benchmark, Level, TearDown}
 import play.api.libs.json.Json
 
 class ArrayOfBigDecimalsBenchmark extends CommonParams {
-  val obj: Array[BigDecimal] = (1 to 128).map { i =>
+  val sourceObj: Array[BigDecimal] = (1 to 128).map { i =>
     BigDecimal(BigInt(Array.fill((i & 31) + 1)((i | 1).toByte)), i % 32) // FIXME | 1 is used to hide JDK bug of serialization redundant 0 after .
   }.toArray // up to 256-bit numbers
+  var obj: Array[BigDecimal] = sourceObj
   val jsonString: String = obj.mkString("[", ",", "]")
   val jsonBytes: Array[Byte] = jsonString.getBytes
 
@@ -44,4 +45,7 @@ class ArrayOfBigDecimalsBenchmark extends CommonParams {
 
   @Benchmark
   def writePlayJson(): Array[Byte] = Json.toBytes(Json.toJson(obj))
+
+  @TearDown(Level.Invocation)
+  def resetCachedStringRepresentation(): Unit = obj = sourceObj.map(x => BigDecimal(x.toBigInt(), x.scale))
 }
